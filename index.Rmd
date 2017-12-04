@@ -1,0 +1,138 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Sharvari A V"
+date: "December 3, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the manner in which they did the exercise.This is the “classe” variable in the training set.
+
+And the `classe` variable has 5 levels:
+
+A: exactly according to the specification
+B: throwing the elbows to the front
+C: lifting the dumbbell only halfway
+D: lowering the dumbbell only halfway
+E: throwing the hips to the front
+
+## Data Processing
+
+Loading the required packages for the analysis and downloading the training and testing data from the below urls:
+
+#### Data sources
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+```{r}
+library(caret)
+library(rattle)
+library(rpart)
+library(randomForest)
+library(rpart.plot)
+```
+
+#### Data Loading and cleaning
+
+```{r}
+trainurl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testurl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+trainFile <- read.csv(url(trainurl), na.strings = c("", "NA"))
+testFile <- read.csv(url(testurl), na.strings = c("", "NA"))
+dim(trainFile)
+dim(testFile)
+```
+By looking at the training and testing  data set, we could see that there are many variable contating missing values. Keep the variables in the training that do not have all NA's in the test
+```{r}
+trainFile <- trainFile[,colSums(is.na(trainFile)) == 0]
+testFile <- testFile[, colSums(is.na(testFile)) == 0]
+#We also remove the first seven predictors since these variables have little predicting power for the outcome `classe`
+trainFile <- trainFile[, -c(1:7)]
+testFile <- testFile[, -c(1:7)]
+dim(trainFile)
+dim(testFile)
+```
+
+#### Data splitting
+
+We will split the training data into two sets : training set(60%) for building the model and testing set(40%) for validation to compute the out of sample error
+
+```{r}
+set.seed(12345)
+inTrain <- createDataPartition(trainFile$classe, p = 0.7, list = FALSE)
+Train <- trainFile[inTrain,]
+Test <- trainFile[-inTrain,]
+dim(Train)
+dim(Test)
+```
+
+## Prediction Algorithms/Data modeling.
+
+We will use the Train data set to build the model and first i will try with classification tree model
+
+#### Classification tree 
+```{r}
+set.seed(12345)
+modTree <- train(classe ~ ., data = Train, method = "rpart")
+modTree
+```
+
+Now we will predict outcome using `Test` set.
+
+```{r}
+prediction1 <- predict(modTree, newdata= Test)
+print(confusionMatrix(prediction1, Test$classe))
+```
+
+From the above result, we could see that the accuracy rate is 49.63 % and out of sample error rate is `100 -49.63 = 50.37` i.e. 0.5 .The classification tree model does not predict the outcome `classe` well.
+
+### Random Forest method:
+
+```{r}
+set.seed(12345)
+model_rf <- randomForest(classe ~ . , data = Train)
+model_rf
+```
+
+Predicting outcome `classe` using Test set.
+
+```{r}
+prediction2 <- predict(model_rf, newdata = Test)
+rf_c <-confusionMatrix(prediction2, Test$classe)
+rf_c
+```
+
+From the above result, the accuracy rate for the same dataset `Train` is 99% and out of sample error rate is 100 - 99.25 =  0.75 %.
+
+## Results
+Prediction on the real test set. Here we are using Random forest model `model_rf` as it showed 99% accuracy rate when compared to classification tree model which showed 49%
+
+```{r}
+testingPrediction <- predict(model_rf, newdata = testFile)
+testingPrediction
+```
+
+## Appendix
+
+Plot for classification Tree model:
+```{r}
+fancyRpartPlot(modTree$finalModel)
+```
+
+## Conclusion
+
+The Random forest model approach is best suited to get accurate predictions for this data. After applying the random forest model to the test set showed 99% accuray rate.
